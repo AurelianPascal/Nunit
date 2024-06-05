@@ -1,0 +1,286 @@
+Sure! I'll show you how to create a REST endpoint in ASP.NET Core to trigger the MessageGeneratorUtility process. We'll use the setup we discussed earlier but focus on integrating the MessageGeneratorUtility in the controller.
+
+Steps
+Create the ASP.NET Core Web API Project: Assuming this is already done.
+Add Necessary Packages: If not already done, ensure you have the necessary packages.
+Implement the MessageGeneratorUtility and its endpoint.
+1. Create the ASP.NET Core Web API Project
+If you haven't created the project yet:
+
+
+dotnet new webapi -n ProjectGeneratorAPI
+cd ProjectGeneratorAPI
+2. Add Necessary Packages
+Ensure you have these packages:
+
+
+dotnet add package Swashbuckle.AspNetCore
+dotnet add package Microsoft.AspNetCore.Mvc.NewtonsoftJson
+dotnet add package Newtonsoft.Json
+3. Create the Controller to Trigger MessageGeneratorUtility
+Create MessageGeneratorController.cs in the Controllers folder:
+
+
+using Microsoft.AspNetCore.Mvc;
+using System.Diagnostics;
+using System.IO;
+using System.Collections.Generic;
+using Newtonsoft.Json.Linq;
+
+namespace ProjectGeneratorAPI.Controllers
+{
+    [ApiController]
+    [Route("[controller]")]
+    public class MessageGeneratorController : ControllerBase
+    {
+        private readonly MessageGeneratorUtility _generator;
+
+        public MessageGeneratorController()
+        {
+            _generator = new MessageGeneratorUtility();
+        }
+
+        [HttpPost]
+        [Route("GenerateCdsList")]
+        public IActionResult GenerateCdsList(int count)
+        {
+            var jsonTemplatePath = Path.Combine(Directory.GetCurrentDirectory(), "cdsTemplate.json");
+
+            if (!System.IO.File.Exists(jsonTemplatePath))
+            {
+                return NotFound("JSON template not found.");
+            }
+
+            var jsonTemplate = System.IO.File.ReadAllText(jsonTemplatePath);
+            var cdsList = _generator.GenerateCdsList(jsonTemplate, count);
+            var jsonList = Newtonsoft.Json.JsonConvert.SerializeObject(cdsList, Newtonsoft.Json.Formatting.Indented);
+            
+            return Ok(jsonList);
+        }
+
+        [HttpPost]
+        [Route("GenerateCdsListAlternative")]
+        public IActionResult GenerateCdsListAlternative(int count)
+        {
+            var jsonTemplatePath = Path.Combine(Directory.GetCurrentDirectory(), "cdsTemplate.json");
+            var csvFilePath = Path.Combine(Directory.GetCurrentDirectory(), "cdsData.csv");
+
+            if (!System.IO.File.Exists(jsonTemplatePath))
+            {
+                return NotFound("JSON template not found.");
+            }
+
+            if (!System.IO.File.Exists(csvFilePath))
+            {
+                return NotFound("CSV file not found.");
+            }
+
+            var jsonTemplate = System.IO.File.ReadAllText(jsonTemplatePath);
+            var cdsList = _generator.GenerateCdsListAlternative(jsonTemplate, csvFilePath, count);
+            var jsonList = Newtonsoft.Json.JsonConvert.SerializeObject(cdsList, Newtonsoft.Json.Formatting.Indented);
+            
+            return Ok(jsonList);
+        }
+    }
+}
+4. Implement the MessageGeneratorUtility Class
+Create MessageGeneratorUtility.cs in the root of your project (or in a folder if you prefer):
+
+csharp
+Copy code
+using System.Collections.Generic;
+using System.IO;
+using Newtonsoft.Json.Linq;
+
+public class MessageGeneratorUtility
+{
+    public List<JObject> GenerateCdsList(string jsonTemplate, int count)
+    {
+        var cdsList = new List<JObject>();
+
+        for (int i = 0; i < count; i++)
+        {
+            JObject cds = CreateCdsObject(jsonTemplate, i);
+            cdsList.Add(cds);
+        }
+
+        return cdsList;
+    }
+
+    public List<JObject> GenerateCdsListAlternative(string jsonTemplate, string csvFilePath, int count)
+    {
+        var cdsList = new List<JObject>();
+        var csvData = ReadCsvFile(csvFilePath);
+
+        for (int i = 0; i < count; i++)
+        {
+            var data = new Dictionary<string, string>(csvData[i % csvData.Count]);
+
+            // Modify the tradeId to ensure uniqueness
+            int originalTradeId = int.Parse(data["tradeId"].Substring(3)); // Extract the numeric part of the tradeId
+            data["tradeId"] = $"CDS{(originalTradeId + (i / csvData.Count)).ToString("D9")}";
+
+            JObject cds = CreateCdsObjectAlternative(jsonTemplate, data);
+            cdsList.Add(cds);
+        }
+
+        return cdsList;
+    }
+
+    public JObject CreateCdsObject(string jsonTemplate, int index)
+    {
+        JObject obj = JObject.Parse(jsonTemplate);
+
+        string tradeId = $"CDS{index.ToString("D9")}";
+        string[] tradeDates = { "2024-06-01", "2024-06-15", "2024-07-01" };
+        string[] entityNames = { "Updated Corporation A", "Updated Corporation B", "Updated Corporation C" };
+        int[] notionalAmounts = { 10000000, 20000000, 30000000 };
+
+        string tradeDate = tradeDates[index % 3];
+        string entityName = entityNames[index % 3];
+        int notionalAmount = notionalAmounts[index % 3];
+
+        // Update the values
+        obj["cdsTrade"]["tradeId"] = tradeId;
+        obj["cdsTrade"]["tradeDate"] = tradeDate;
+        obj["cdsTrade"]["notionalAmount"] = notionalAmount;
+        obj["cdsTrade"]["referenceEntity"]["entityName"] = entityName;
+
+        return obj;
+    }
+
+    public JObject CreateCdsObjectAlternative(string jsonTemplate, Dictionary<string, string> csvData)
+    {
+        JObject obj = JObject.Parse(jsonTemplate);
+
+        // Update the values from CSV data
+        obj["cdsTrade"]["tradeId"] = csvData["tradeId"];
+        obj["cdsTrade"]["tradeDate"] = csvData["tradeDate"];
+        obj["cdsTrade"]["notionalAmount"] = int.Parse(csvData["notionalAmount"]);
+        obj["cdsTrade"]["referenceEntity"]["entityName"] = csvData["entityName"];
+
+        return obj;
+    }
+
+    private List<Dictionary<string, string>> ReadCsvFile(string filePath)
+    {
+        var csvData = new List<Dictionary<string, string>>();
+        var lines = File.ReadAllLines(filePath);
+
+        if (lines.Length > 0)
+        {
+            var headers = lines[0].Split(',');
+
+            for (int i = 1; i < lines.Length; i++)
+            {
+                var values = lines[i].Split(',');
+                var dataRow = new Dictionary<string, string>();
+
+                for (int j = 0; j < headers.Length; j++)
+                {
+                    dataRow[headers[j]] = values[j];
+                }
+
+                csvData.Add(dataRow);
+            }
+        }
+
+        return csvData;
+    }
+}
+5. Ensure the JSON Template and CSV Files Exist
+Place the cdsTemplate.json and cdsData.csv files in the root of your project directory.
+
+Example cdsTemplate.json:
+
+json
+Copy code
+{
+    "cdsTrade": {
+        "tradeId": "CDS123456789",
+        "tradeDate": "2024-06-04",
+        "maturityDate": "2029-06-04",
+        "notionalAmount": 10000000,
+        "currency": "USD",
+        "referenceEntity": {
+            "entityId": "ENT123456",
+            "entityName": "Example Corporation",
+            "entityType": "Corporation",
+            "country": "USA",
+            "sector": "Financials"
+        },
+        "protectionBuyer": {
+            "partyId": "PARTY001",
+            "partyName": "Buyer Inc."
+        },
+        "protectionSeller": {
+            "partyId": "PARTY002",
+            "partyName": "Seller Ltd."
+        },
+        "creditEvents": [
+            "Bankruptcy",
+            "Failure to Pay",
+            "Restructuring"
+        ],
+        "paymentSchedule": [
+            {
+                "paymentDate": "2024-09-04",
+                "paymentAmount": 250000,
+                "paymentType": "Premium"
+            },
+            {
+                "paymentDate": "2024-12-04",
+                "paymentAmount": 250000,
+                "paymentType": "Premium"
+            },
+            {
+                "paymentDate": "2025-03-04",
+                "paymentAmount": 250000,
+                "paymentType": "Premium"
+            }
+        ],
+        "fixedRate": 0.05,
+        "spread": 0.01,
+        "recoveryRate": 0.4,
+        "accrualStartDate": "2024-06-04",
+        "accrualEndDate": "2029-06-04",
+        "documentation": {
+            "contractType": "Standard",
+            "contractVersion": "2024",
+            "governingLaw": "New York"
+        },
+        "underlyingAssets": [
+            {
+                "assetId": "ASSET001",
+                "assetType": "Bond",
+                "assetName": "Example Bond 2024",
+                "assetMaturityDate": "2024-12-31",
+                "couponRate": 0.03
+            }
+        ],
+        "additionalTerms": {
+            "initialMargin": 500000,
+            "variationMargin": 100000,
+            "collateralType": "Cash",
+            "collateralCurrency": "USD"
+        }
+    }
+}
+Example cdsData.csv:
+
+csv
+Copy code
+tradeId,tradeDate,
+
+
+Test the API with Swagger
+Open your browser and navigate to http://localhost:5000/swagger.
+You should see the Swagger UI with the MessageGenerator endpoints.
+Use the GenerateCdsList and GenerateCdsListAlternative endpoints to trigger the batch script and generate the projects.
+This setup will allow you to trigger the MessageGeneratorUtility process through REST endpoints with Swagger documentation, making it easy to use and integrate into other systems.
+
+
+
+
+
+
