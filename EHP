@@ -1,0 +1,222 @@
+using System;
+using System.Collections.Generic;
+using System.Text;
+using System.Threading.Tasks;
+using Azure.Messaging.EventHubs;
+using Azure.Messaging.EventHubs.Producer;
+using Microsoft.Extensions.Configuration;
+
+public class EventHubPublisher
+{
+    private readonly string _connectionString;
+    private readonly string _eventHubName;
+    private EventHubProducerClient _producerClient;
+
+    public EventHubPublisher(string connectionString, string eventHubName)
+    {
+        _connectionString = connectionString ?? throw new ArgumentNullException(nameof(connectionString));
+        _eventHubName = eventHubName ?? throw new ArgumentNullException(nameof(eventHubName));
+        _producerClient = new EventHubProducerClient(_connectionString, _eventHubName);
+    }
+
+    public async Task PublishMessagesAsync(IEnumerable<string> messages)
+    {
+        if (messages == null) throw new ArgumentNullException(nameof(messages));
+
+        try
+        {
+            using EventDataBatch eventBatch = await _producerClient.CreateBatchAsync();
+
+            foreach (var message in messages)
+            {
+                var eventData = new EventData(Encoding.UTF8.GetBytes(message));
+
+                if (!eventBatch.TryAdd(eventData))
+                {
+                    // Log the size of the full batch
+                    Console.WriteLine($"Batch size: {eventBatch.SizeInBytes} bytes. Sending batch...");
+
+                    // Send the full batch and create a new one
+                    await _producerClient.SendAsync(eventBatch);
+                    eventBatch.Dispose();
+
+                    eventBatch = await _producerClient.CreateBatchAsync();
+                    if (!eventBatch.TryAdd(eventData))
+                    {
+                        throw new Exception("Event is too large for an empty batch.");
+                    }
+                }
+            }
+
+            // Send any remaining events in the final batch
+            if (eventBatch.Count > 0)
+            {
+                // Log the size of the final batch
+                Console.WriteLine($"Final batch size: {eventBatch.SizeInBytes} bytes. Sending batch...");
+                await _producerClient.SendAsync(eventBatch);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred while publishing messages: {ex.Message}");
+            // Consider adding logging here
+        }
+    }
+
+    public async Task CloseAsync()
+    {
+        if (_producerClient != null)
+        {
+            await _producerClient.CloseAsync();
+            _producerClient.Dispose();
+            _producerClient = null;
+        }
+    }
+}
+
+class Program
+{
+    static async Task Main(string[] args)
+    {
+        await RunAsync();
+    }
+
+    private static async Task RunAsync()
+    {
+        var configuration = LoadConfiguration();
+        var (connectionString, eventHubName) = GetEventHubSettings(configuration);
+
+        var messages = GenerateMessages(10000);
+
+        var publisher = new EventHubPublisher(connectionString, eventHubName);
+
+        try
+        {
+            await publisher.PublishMessagesAsync(messages);
+            Console.WriteLine("A large list of messages has been sent to the Event Hub.");
+        }
+        finally
+        {
+            await publisher.CloseAsync();
+        }
+    }
+
+    private static IConfiguration LoadConfiguration()
+    {
+        return new ConfigurationBuilder()
+            .SetBasePath(AppContext.BaseDirectory)
+            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+            .Build();
+    }
+
+    private static (string, string) GetEventHubSettings(IConfiguration configuration)
+    {
+        var connectionString = configuration["EventHub:ConnectionString"];
+        var eventHubName = configuration["EventHub:EventHubName"];
+        return (connectionString, eventHubName);
+    }
+
+    private static List<string> GenerateMessages(int count)
+    {
+        var messages = new List<string>();
+        for (int i = 0; i < count; i++)
+        {
+            messages.Add($"Message {i}");
+        }
+        return messages;
+    }
+}
+
+
+
+#############################################
+Step 1: Create a RESTful API using ASP.NET Core
+First, create a new ASP.NET Core Web API project:
+
+bash
+Copy code
+dotnet new webapi -n EventHubPublisherApi
+cd EventHubPublisherApi
+Add the necessary dependencies:
+
+bash
+Copy code
+dotnet add package Microsoft.Extensions.Configuration
+dotnet add package Microsoft.Extensions.Configuration.Json
+dotnet add package Azure.Messaging.EventHubs
+dotnet add package Azure.Messaging.EventHubs.Producer
+Modify Program.cs to set up configuration:
+
+csharp
+Copy code
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+// Load configuration
+builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseHttpsRedirection();
+app.UseAuthorization();
+app.MapControllers();
+
+app.Run();
+Create a controller to handle publishing messages to Event Hub:
+
+csharp
+Copy code
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+namespace EventHubPublisherApi.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    public class EventHubController : ControllerBase
+    {
+        private readonly EventHubPublisher _publisher;
+
+        public EventHubController(IConfiguration configuration)
+        {
+            var (connectionString, eventHubName) = GetEventHubSettings(configuration);
+            _publisher = new EventHubPublisher(connectionString, eventHubName);
+        }
+
+        private (string, string) GetEventHubSettings(IConfiguration configuration)
+        {
+            var connectionString = configuration["EventHub:ConnectionString"];
+            var eventHubName = configuration["EventHub:EventHubName"];
+            return (connectionString, eventHubName);
+        }
+
+        [HttpPost("publish")]
+        public async Task<IActionResult> PublishMessages([FromBody] List<string> messages)
+        {
+            await _publisher.PublishMessagesAsync(messages);
+            return Ok("Messages have been sent to the Event Hub.");
+        }
+    }
+}
+
+
+#############
+
+
