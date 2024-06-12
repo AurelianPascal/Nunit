@@ -1,0 +1,158 @@
+Step-by-Step Guide to Create a REST Endpoint and Configure Kubernetes with Helm
+1. Create a REST Endpoint
+Create a New ASP.NET Core Web API Project
+
+sh
+Copy code
+dotnet new webapi -n ExampleApi
+cd ExampleApi
+Define the Model and Controller
+
+Add ExampleMessage.cs:
+csharp
+Copy code
+public class ExampleMessage
+{
+    public string Name { get; set; }
+    public int Age { get; set; }
+    public string Country { get; set; }
+}
+Add ExampleController.cs:
+csharp
+Copy code
+using Microsoft.AspNetCore.Mvc;
+[Route("api/[controller]")]
+[ApiController]
+public class ExampleController : ControllerBase
+{
+    [HttpPost]
+    public IActionResult Post([FromBody] ExampleMessage message)
+    {
+        // Process the message
+        return Ok(message);
+    }
+}
+Run the API
+
+sh
+Copy code
+dotnet run
+2. Dockerize the API
+Create a Dockerfile:
+
+dockerfile
+Copy code
+FROM mcr.microsoft.com/dotnet/aspnet:5.0 AS base
+WORKDIR /app
+EXPOSE 80
+FROM mcr.microsoft.com/dotnet/sdk:5.0 AS build
+WORKDIR /src
+COPY ["ExampleApi/ExampleApi.csproj", "ExampleApi/"]
+RUN dotnet restore "ExampleApi/ExampleApi.csproj"
+COPY . .
+WORKDIR "/src/ExampleApi"
+RUN dotnet build "ExampleApi.csproj" -c Release -o /app/build
+FROM build AS publish
+RUN dotnet publish "ExampleApi.csproj" -c Release -o /app/publish
+FROM base AS final
+WORKDIR /app
+COPY --from=publish /app/publish .
+ENTRYPOINT ["dotnet", "ExampleApi.dll"]
+Build and Push Docker Image
+
+sh
+Copy code
+docker build -t your-dockerhub-username/exampleapi .
+docker push your-dockerhub-username/exampleapi
+3. Kubernetes Configuration with Helm
+Create Helm Chart
+
+sh
+Copy code
+helm create exampleapi
+Update values.yaml
+
+yaml
+Copy code
+image:
+  repository: your-dockerhub-username/exampleapi
+  pullPolicy: IfNotPresent
+  tag: "latest"
+service:
+  type: ClusterIP
+  port: 80
+ingress:
+  enabled: true
+  hosts:
+    - host: exampleapi.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+Deploy with Helm
+
+sh
+Copy code
+helm install exampleapi ./exampleapi
+4. Kubernetes Ingress Configuration
+Add Ingress Configuration
+
+Update templates/ingress.yaml:
+yaml
+Copy code
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: exampleapi
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+    - host: exampleapi.local
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: exampleapi
+                port:
+                  number: 80
+5. Pod Configuration
+Update templates/deployment.yaml:
+
+yaml
+Copy code
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: exampleapi
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: exampleapi
+  template:
+    metadata:
+      labels:
+        app: exampleapi
+    spec:
+      containers:
+        - name: exampleapi
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          ports:
+            - containerPort: 80
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: "Production"
+Summary
+Create a REST API: Using ASP.NET Core.
+Dockerize the API: Build and push a Docker image.
+Deploy to Kubernetes: Use Helm to deploy the service and configure Ingress.
+
+2/2
+
+
+
+
+
+
