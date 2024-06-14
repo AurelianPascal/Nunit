@@ -1,0 +1,319 @@
+using System;
+
+public class DateUtils
+{
+    // Method to update date by a second for "YYYY-MM-DD" format
+    public static string UpdateDateBySecond(string date, int seconds)
+    {
+        if (DateTime.TryParseExact(date, "yyyy-MM-dd", null, System.Globalization.DateTimeStyles.None, out DateTime dateTime))
+        {
+            dateTime = dateTime.AddSeconds(seconds);
+            return dateTime.ToString("yyyy-MM-dd");
+        }
+        else
+        {
+            throw new ArgumentException("Invalid date format. Expected format: YYYY-MM-DD");
+        }
+    }
+
+    // Method to update date by a minute for "YYYY-MM-DD" format
+    public static string UpdateDateByMinute(string date, int minutes)
+    {
+        if (DateTime.TryParseExact(date, "yyyy-MM-dd", null, System.Globalization.DateTimeStyles.None, out DateTime dateTime))
+        {
+            dateTime = dateTime.AddMinutes(minutes);
+            return dateTime.ToString("yyyy-MM-dd");
+        }
+        else
+        {
+            throw new ArgumentException("Invalid date format. Expected format: YYYY-MM-DD");
+        }
+    }
+
+    // Method to update date by a day for "YYYY-MM-DD" format
+    public static string UpdateDateByDay(string date, int days)
+    {
+        if (DateTime.TryParseExact(date, "yyyy-MM-dd", null, System.Globalization.DateTimeStyles.None, out DateTime dateTime))
+        {
+            dateTime = dateTime.AddDays(days);
+            return dateTime.ToString("yyyy-MM-dd");
+        }
+        else
+        {
+            throw new ArgumentException("Invalid date format. Expected format: YYYY-MM-DD");
+        }
+    }
+
+    // Method to update date by a second for ISO DateTime format
+    public static string UpdateDateTimeBySecond(string isoDateTime, int seconds)
+    {
+        if (DateTime.TryParse(isoDateTime, null, System.Globalization.DateTimeStyles.RoundtripKind, out DateTime dateTime))
+        {
+            dateTime = dateTime.AddSeconds(seconds);
+            return dateTime.ToString("o"); // ISO 8601 format
+        }
+        else
+        {
+            throw new ArgumentException("Invalid ISO DateTime format.");
+        }
+    }
+
+    // Method to update date by a minute for ISO DateTime format
+    public static string UpdateDateTimeByMinute(string isoDateTime, int minutes)
+    {
+        if (DateTime.TryParse(isoDateTime, null, System.Globalization.DateTimeStyles.RoundtripKind, out DateTime dateTime))
+        {
+            dateTime = dateTime.AddMinutes(minutes);
+            return dateTime.ToString("o"); // ISO 8601 format
+        }
+        else
+        {
+            throw new ArgumentException("Invalid ISO DateTime format.");
+        }
+    }
+
+    // Method to update date by a day for ISO DateTime format
+    public static string UpdateDateTimeByDay(string isoDateTime, int days)
+    {
+        if (DateTime.TryParse(isoDateTime, null, System.Globalization.DateTimeStyles.RoundtripKind, out DateTime dateTime))
+        {
+            dateTime = dateTime.AddDays(days);
+            return dateTime.ToString("o"); // ISO 8601 format
+        }
+        else
+        {
+            throw new ArgumentException("Invalid ISO DateTime format.");
+        }
+    }
+}
+
+
+
+####
+
+using NUnit.Framework;
+using System;
+
+[TestFixture]
+public class DateUtilsTests
+{
+    [Test]
+    public void UpdateDateBySecond_ValidDate_ReturnsUpdatedDate()
+    {
+        string result = DateUtils.UpdateDateBySecond("2024-06-14", 60);
+        Assert.AreEqual("2024-06-14", result);
+    }
+
+    [Test]
+    public void UpdateDateByMinute_ValidDate_ReturnsUpdatedDate()
+    {
+        string result = DateUtils.UpdateDateByMinute("2024-06-14", 10);
+        Assert.AreEqual("2024-06-14", result);
+    }
+
+    [Test]
+    public void UpdateDateByDay_ValidDate_ReturnsUpdatedDate()
+    {
+        string result = DateUtils.UpdateDateByDay("2024-06-14", 5);
+        Assert.AreEqual("2024-06-19", result);
+    }
+
+    [Test]
+    public void UpdateDateTimeBySecond_ValidDateTime_ReturnsUpdatedDateTime()
+    {
+        string result = DateUtils.UpdateDateTimeBySecond("2024-06-14T10:30:00Z", 60);
+        Assert.AreEqual("2024-06-14T10:31:00.0000000Z", result);
+    }
+
+    [Test]
+    public void UpdateDateTimeByMinute_ValidDateTime_ReturnsUpdatedDateTime()
+    {
+        string result = DateUtils.UpdateDateTimeByMinute("2024-06-14T10:30:00Z", 15);
+        Assert.AreEqual("2024-06-14T10:45:00.0000000Z", result);
+    }
+
+    [Test]
+    public void UpdateDateTimeByDay_ValidDateTime_ReturnsUpdatedDateTime()
+    {
+        string result = DateUtils.UpdateDateTimeByDay("2024-06-14T10:30:00Z", 3);
+        Assert.AreEqual("2024-06-17T10:30:00.0000000Z", result);
+    }
+
+    [Test]
+    public void UpdateDateBySecond_InvalidDate_ThrowsException()
+    {
+        Assert.Throws<ArgumentException>(() => DateUtils.UpdateDateBySecond("invalid-date", 60));
+    }
+
+    [Test]
+    public void UpdateDateByMinute_InvalidDate_ThrowsException()
+    {
+        Assert.Throws<ArgumentException>(() => DateUtils.UpdateDateByMinute("invalid-date", 10));
+    }
+
+    [Test]
+    public void UpdateDateByDay_InvalidDate_ThrowsException()
+    {
+        Assert.Throws<ArgumentException>(() => DateUtils.UpdateDateByDay("invalid-date", 5));
+    }
+
+    [Test]
+    public void UpdateDateTimeBySecond_InvalidDateTime_ThrowsException()
+    {
+        Assert.Throws<ArgumentException>(() => DateUtils.UpdateDateTimeBySecond("invalid-datetime", 60));
+    }
+
+    [Test]
+    public void UpdateDateTimeByMinute_InvalidDateTime_ThrowsException()
+    {
+        Assert.Throws<ArgumentException>(() => DateUtils.UpdateDateTimeByMinute("invalid-datetime", 15));
+    }
+
+    [Test]
+    public void UpdateDateTimeByDay_InvalidDateTime_ThrowsException()
+    {
+        Assert.Throws<ArgumentException>(() => DateUtils.UpdateDateTimeByDay("invalid-datetime", 3));
+    }
+}
+
+
+####
+
+using System;
+using System.Threading;
+
+public class ThreadSafeIdGenerator
+{
+    private int _seedId;
+    private int _id1000;
+    private int _id5000;
+    private static readonly Random _random = new Random();
+
+    public ThreadSafeIdGenerator(int initialSeed = 0)
+    {
+        _seedId = initialSeed;
+        _id1000 = _random.Next(1000, 1011);
+        _id5000 = _random.Next(1000, 1011);
+    }
+
+    public int GetNextId()
+    {
+        int nextId = Interlocked.Increment(ref _seedId);
+        UpdateSpecialIds(nextId);
+        return nextId;
+    }
+
+    public int GetId1000()
+    {
+        return _id1000;
+    }
+
+    public int GetId5000()
+    {
+        return _id5000;
+    }
+
+    private void UpdateSpecialIds(int currentId)
+    {
+        if (currentId % 1000 == 0)
+        {
+            _id1000 = _random.Next(1000, 1011);
+        }
+        if (currentId % 5000 == 0)
+        {
+            _id5000 = _random.Next(1000, 1011);
+        }
+    }
+}
+
+
+####
+
+
+using NUnit.Framework;
+using System.Threading.Tasks;
+
+[TestFixture]
+public class ThreadSafeIdGeneratorTests
+{
+    [Test]
+    public void GetNextId_InitialSeed_ReturnsIncrementedIds()
+    {
+        ThreadSafeIdGenerator idGenerator = new ThreadSafeIdGenerator();
+
+        Assert.AreEqual(1, idGenerator.GetNextId());
+        Assert.AreEqual(2, idGenerator.GetNextId());
+        Assert.AreEqual(3, idGenerator.GetNextId());
+    }
+
+    [Test]
+    public void GetNextId_CustomInitialSeed_ReturnsIncrementedIds()
+    {
+        ThreadSafeIdGenerator idGenerator = new ThreadSafeIdGenerator(100);
+
+        Assert.AreEqual(101, idGenerator.GetNextId());
+        Assert.AreEqual(102, idGenerator.GetNextId());
+        Assert.AreEqual(103, idGenerator.GetNextId());
+    }
+
+    [Test]
+    public void GetNextId_MultiThreaded_ReturnsUniqueIds()
+    {
+        ThreadSafeIdGenerator idGenerator = new ThreadSafeIdGenerator();
+        int numberOfThreads = 1000;
+        Task[] tasks = new Task[numberOfThreads];
+        int[] results = new int[numberOfThreads];
+
+        for (int i = 0; i < numberOfThreads; i++)
+        {
+            int index = i;
+            tasks[i] = Task.Run(() => results[index] = idGenerator.GetNextId());
+        }
+
+        Task.WaitAll(tasks);
+
+        for (int i = 0; i < numberOfThreads; i++)
+        {
+            for (int j = i + 1; j < numberOfThreads; j++)
+            {
+                Assert.AreNotEqual(results[i], results[j]);
+            }
+        }
+    }
+
+    [Test]
+    public void GetId1000_UpdatesEvery1000Calls()
+    {
+        ThreadSafeIdGenerator idGenerator = new ThreadSafeIdGenerator();
+        int initialId1000 = idGenerator.GetId1000();
+
+        for (int i = 0; i < 999; i++)
+        {
+            idGenerator.GetNextId();
+        }
+
+        Assert.AreEqual(initialId1000, idGenerator.GetId1000());
+
+        idGenerator.GetNextId();
+        Assert.AreNotEqual(initialId1000, idGenerator.GetId1000());
+        Assert.IsTrue(idGenerator.GetId1000() >= 1000 && idGenerator.GetId1000() <= 1010);
+    }
+
+    [Test]
+    public void GetId5000_UpdatesEvery5000Calls()
+    {
+        ThreadSafeIdGenerator idGenerator = new ThreadSafeIdGenerator();
+        int initialId5000 = idGenerator.GetId5000();
+
+        for (int i = 0; i < 4999; i++)
+        {
+            idGenerator.GetNextId();
+        }
+
+        Assert.AreEqual(initialId5000, idGenerator.GetId5000());
+
+        idGenerator.GetNextId();
+        Assert.AreNotEqual(initialId5000, idGenerator.GetId5000());
+        Assert.IsTrue(idGenerator.GetId5000() >= 1000 && idGenerator.GetId5000() <= 1010);
+    }
+}
