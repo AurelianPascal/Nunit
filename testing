@@ -1,0 +1,133 @@
+using NUnit.Framework;
+using Newtonsoft.Json;
+using System.Collections.Generic;
+
+[TestFixture]
+public class CompanyTests
+{
+    private string jsonString;
+
+    [SetUp]
+    public void Setup()
+    {
+        jsonString = @"
+        {
+            ""company"": ""Tech Solutions"",
+            ""employees"": [
+                {
+                    ""name"": ""Alice Johnson"",
+                    ""age"": 30,
+                    ""address"": {
+                        ""street"": ""123 Maple Street"",
+                        ""city"": ""Springfield"",
+                        ""state"": ""IL"",
+                        ""zipCode"": ""62701""
+                    },
+                    ""projects"": [
+                        {
+                            ""projectName"": ""Project Alpha"",
+                            ""budget"": 100000,
+                            ""teamMembers"": [""Alice Johnson"", ""Bob Smith""]
+                        },
+                        {
+                            ""projectName"": ""Project Beta"",
+                            ""budget"": 150000,
+                            ""teamMembers"": [""Alice Johnson"", ""Charlie Davis""]
+                        }
+                    ]
+                },
+                {
+                    ""name"": ""Bob Smith"",
+                    ""age"": 35,
+                    ""address"": {
+                        ""street"": ""456 Oak Avenue"",
+                        ""city"": ""Springfield"",
+                        ""state"": ""IL"",
+                        ""zipCode"": ""62702""
+                    },
+                    ""projects"": [
+                        {
+                            ""projectName"": ""Project Alpha"",
+                            ""budget"": 100000,
+                            ""teamMembers"": [""Alice Johnson"", ""Bob Smith""]
+                        }
+                    ]
+                }
+            ]
+        }";
+    }
+
+    [Test]
+    public void TestDeepCopy()
+    {
+        Company baseCompany = JsonConvert.DeserializeObject<Company>(jsonString);
+        Company companyCopy = DeepCopy(baseCompany);
+
+        Assert.AreEqual(baseCompany.Name, companyCopy.Name);
+        Assert.AreEqual(baseCompany.Employees.Count, companyCopy.Employees.Count);
+        Assert.AreNotSame(baseCompany, companyCopy);
+        Assert.AreNotSame(baseCompany.Employees, companyCopy.Employees);
+    }
+
+    [Test]
+    public void TestUpdateValues()
+    {
+        Company baseCompany = JsonConvert.DeserializeObject<Company>(jsonString);
+        Company companyCopy = DeepCopy(baseCompany);
+
+        string newCompanyName = "New Tech Solutions";
+        int newBudget = 200000;
+
+        UpdateValues(companyCopy, newCompanyName, newBudget);
+
+        Assert.AreEqual(newCompanyName, companyCopy.Name);
+        Assert.AreEqual(newBudget, companyCopy.Employees[0].Projects[0].Budget);
+    }
+
+    [Test]
+    public void TestMultipleInstances()
+    {
+        Company baseCompany = JsonConvert.DeserializeObject<Company>(jsonString);
+
+        List<Company> companies = new List<Company>();
+        int numberOfInstances = 5;
+
+        for (int i = 0; i < numberOfInstances; i++)
+        {
+            Company companyCopy = DeepCopy(baseCompany);
+
+            string newCompanyName = $"Tech Solutions {i + 1}";
+            int newBudget = 200000 + (i * 50000);
+            UpdateValues(companyCopy, newCompanyName, newBudget);
+
+            companies.Add(companyCopy);
+        }
+
+        Assert.AreEqual(numberOfInstances, companies.Count);
+        for (int i = 0; i < numberOfInstances; i++)
+        {
+            Assert.AreEqual($"Tech Solutions {i + 1}", companies[i].Name);
+            Assert.AreEqual(200000 + (i * 50000), companies[i].Employees[0].Projects[0].Budget);
+        }
+    }
+
+    private static T DeepCopy<T>(T obj)
+    {
+        string json = JsonConvert.SerializeObject(obj);
+        return JsonConvert.DeserializeObject<T>(json);
+    }
+
+    private static void UpdateValues(Company company, string newCompanyName, int newBudget)
+    {
+        company.Name = newCompanyName;
+
+        if (company.Employees != null && company.Employees.Count > 0)
+        {
+            Employee firstEmployee = company.Employees[0];
+            if (firstEmployee.Projects != null && firstEmployee.Projects.Count > 0)
+            {
+                firstEmployee.Projects[0].Budget = newBudget;
+            }
+        }
+    }
+}
