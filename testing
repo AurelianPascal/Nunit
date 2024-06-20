@@ -1,66 +1,23 @@
 using NUnit.Framework;
 using Newtonsoft.Json;
 using System.Collections.Generic;
+using System.IO;
 
 [TestFixture]
 public class CompanyTests
 {
-    private string jsonString;
+    private Company baseCompany;
 
     [SetUp]
     public void Setup()
     {
-        jsonString = @"
-        {
-            ""company"": ""Tech Solutions"",
-            ""employees"": [
-                {
-                    ""name"": ""Alice Johnson"",
-                    ""age"": 30,
-                    ""address"": {
-                        ""street"": ""123 Maple Street"",
-                        ""city"": ""Springfield"",
-                        ""state"": ""IL"",
-                        ""zipCode"": ""62701""
-                    },
-                    ""projects"": [
-                        {
-                            ""projectName"": ""Project Alpha"",
-                            ""budget"": 100000,
-                            ""teamMembers"": [""Alice Johnson"", ""Bob Smith""]
-                        },
-                        {
-                            ""projectName"": ""Project Beta"",
-                            ""budget"": 150000,
-                            ""teamMembers"": [""Alice Johnson"", ""Charlie Davis""]
-                        }
-                    ]
-                },
-                {
-                    ""name"": ""Bob Smith"",
-                    ""age"": 35,
-                    ""address"": {
-                        ""street"": ""456 Oak Avenue"",
-                        ""city"": ""Springfield"",
-                        ""state"": ""IL"",
-                        ""zipCode"": ""62702""
-                    },
-                    ""projects"": [
-                        {
-                            ""projectName"": ""Project Alpha"",
-                            ""budget"": 100000,
-                            ""teamMembers"": [""Alice Johnson"", ""Bob Smith""]
-                        }
-                    ]
-                }
-            ]
-        }";
+        string jsonString = File.ReadAllText("company.json");
+        baseCompany = JsonConvert.DeserializeObject<Company>(jsonString);
     }
 
     [Test]
     public void TestDeepCopy()
     {
-        Company baseCompany = JsonConvert.DeserializeObject<Company>(jsonString);
         Company companyCopy = DeepCopy(baseCompany);
 
         Assert.AreEqual(baseCompany.Name, companyCopy.Name);
@@ -72,7 +29,6 @@ public class CompanyTests
     [Test]
     public void TestUpdateValues()
     {
-        Company baseCompany = JsonConvert.DeserializeObject<Company>(jsonString);
         Company companyCopy = DeepCopy(baseCompany);
 
         string newCompanyName = "New Tech Solutions";
@@ -87,8 +43,6 @@ public class CompanyTests
     [Test]
     public void TestMultipleInstances()
     {
-        Company baseCompany = JsonConvert.DeserializeObject<Company>(jsonString);
-
         List<Company> companies = new List<Company>();
         int numberOfInstances = 5;
 
