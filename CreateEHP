@@ -17,23 +17,30 @@ public class EventHubPublisher : IAsyncDisposable
 
     public async Task SendMessagesAsync(List<EventData> events)
     {
-        using EventDataBatch eventBatch = await _producerClient.CreateBatchAsync();
+        EventDataBatch eventBatch = await _producerClient.CreateBatchAsync();
 
-        foreach (var eventData in events)
+        try
         {
-            if (!eventBatch.TryAdd(eventData))
+            foreach (var eventData in events)
             {
-                // If the batch is full, send it and create a new one
+                if (!eventBatch.TryAdd(eventData))
+                {
+                    // If the batch is full, send it and create a new one
+                    await _producerClient.SendAsync(eventBatch);
+                    eventBatch.Dispose();
+                    eventBatch = await _producerClient.CreateBatchAsync();
+                    eventBatch.TryAdd(eventData);
+                }
+            }
+
+            if (eventBatch.Count > 0)
+            {
                 await _producerClient.SendAsync(eventBatch);
-                eventBatch.Dispose();
-                eventBatch = await _producerClient.CreateBatchAsync();
-                eventBatch.TryAdd(eventData);
             }
         }
-
-        if (eventBatch.Count > 0)
+        finally
         {
-            await _producerClient.SendAsync(eventBatch);
+            await eventBatch.DisposeAsync();
         }
     }
 
@@ -43,99 +50,52 @@ public class EventHubPublisher : IAsyncDisposable
     }
 }
 
+###
 
-####
+
 using System;
 using System.Collections.Generic;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
-using Azure.Identity;
 using Azure.Messaging.EventHubs;
 using Azure.Messaging.EventHubs.Producer;
 
-class Program
+public class TestEventHubProducerClient : EventHubProducerClient
 {
-    private const string FullyQualifiedNamespace = "<Your Event Hub namespace>.servicebus.windows.net";
-    private const string EventHubName = "<Your Event Hub name>";
+    public List<EventDataBatch> SentBatches { get; } = new List<EventDataBatch>();
 
-    static async Task Main(string[] args)
+    public TestEventHubProducerClient(string fullyQualifiedNamespace, string eventHubName, TokenCredential credential, EventHubProducerClientOptions options)
+        : base(fullyQualifiedNamespace, eventHubName, credential, options)
     {
-        var events = new List<EventData>();
-        for (int i = 0; i < 1000; i++)  // Adjust the number of events as needed
+    }
+
+    public override async Task<EventDataBatch> CreateBatchAsync(CancellationToken cancellationToken = default)
+    {
+        return await Task.FromResult(new TestEventDataBatch());
+    }
+
+    public override async Task SendAsync(EventDataBatch eventBatch, CancellationToken cancellationToken = default)
+    {
+        if (eventBatch is TestEventDataBatch testBatch)
         {
-            var eventBody = Encoding.UTF8.GetBytes($"Event {i}");
-            events.Add(new EventData(eventBody));
+            SentBatches.Add(testBatch);
         }
 
-        var credential = new DefaultAzureCredential();
-        var options = new EventHubProducerClientOptions
-        {
-            // Configure additional options as needed
-        };
-
-        await using var eventHubPublisher = new EventHubPublisher(FullyQualifiedNamespace, EventHubName, credential, options);
-        await eventHubPublisher.SendMessagesAsync(events);
-
-        Console.WriteLine("All events published.");
+        await Task.CompletedTask;
     }
 }
 
-#####
-
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System.Collections.Generic;
-using System.Text;
-using System.Threading.Tasks;
-using Azure.Identity;
-using Azure.Messaging.EventHubs;
-using Azure.Messaging.EventHubs.Producer;
-using Moq;
-
-namespace EventHubPublisherTests
+public class TestEventDataBatch : EventDataBatch
 {
-    [TestClass]
-    public class EventHubPublisherTests
+    private readonly List<EventData> _events = new List<EventData>();
+
+    public override bool TryAdd(EventData eventData)
     {
-        private const string FullyQualifiedNamespace = "<Your Event Hub namespace>.servicebus.windows.net";
-        private const string EventHubName = "<Your Event Hub name>";
-
-        [TestMethod]
-        public async Task TestSendMessagesAsync()
-        {
-            // Arrange
-            var credential = new DefaultAzureCredential();
-            var options = new EventHubProducerClientOptions
-            {
-                // Configure additional options as needed
-            };
-
-            var mockProducerClient = new Mock<EventHubProducerClient>(FullyQualifiedNamespace, EventHubName, credential, options);
-
-            // Mock CreateBatchAsync and SendAsync methods
-            var eventDataBatch = new EventDataBatch(256000, 1, FullyQualifiedNamespace, EventHubName);
-            mockProducerClient.Setup(p => p.CreateBatchAsync(default))
-                .ReturnsAsync(eventDataBatch);
-
-            mockProducerClient.Setup(p => p.SendAsync(It.IsAny<EventDataBatch>(), default))
-                .Returns(Task.CompletedTask);
-
-            var eventHubPublisher = new EventHubPublisher(FullyQualifiedNamespace, EventHubName, credential, options);
-
-            // Act
-            var events = new List<EventData>
-            {
-                new EventData(Encoding.UTF8.GetBytes("Event 1")),
-                new EventData(Encoding.UTF8.GetBytes("Event 2")),
-                new EventData(Encoding.UTF8.GetBytes("Event 3"))
-            };
-
-            await eventHubPublisher.SendMessagesAsync(events);
-
-            // Assert
-            mockProducerClient.Verify(p => p.SendAsync(It.IsAny<EventDataBatch>(), default), Times.AtLeastOnce);
-        }
+        _events.Add(eventData);
+        return true;
     }
+
+    public override IEnumerable<EventData> AsEnumerable() => _events;
+
+    public override int Count => _events.Count;
 }
-
-####
-
