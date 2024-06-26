@@ -1,0 +1,372 @@
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Newtonsoft.Json;
+using System.Collections.Generic;
+using System.IO;
+
+[TestClass]
+public class CompanyTests
+{
+    private Company baseCompany;
+
+    [TestInitialize]
+    public void Setup()
+    {
+        string jsonString = File.ReadAllText("company.json");
+        baseCompany = JsonConvert.DeserializeObject<Company>(jsonString);
+    }
+
+    [TestMethod]
+    public void TestDeepCopy()
+    {
+        Company companyCopy = DeepCopy(baseCompany);
+
+        Assert.AreEqual(baseCompany.Name, companyCopy.Name);
+        Assert.AreEqual(baseCompany.Employees.Count, companyCopy.Employees.Count);
+        Assert.AreNotSame(baseCompany, companyCopy);
+        Assert.AreNotSame(baseCompany.Employees, companyCopy.Employees);
+    }
+
+    [TestMethod]
+    public void TestUpdateValues()
+    {
+        Company companyCopy = DeepCopy(baseCompany);
+
+        string newCompanyName = "New Tech Solutions";
+        int newBudget = 200000;
+
+        UpdateValues(companyCopy, newCompanyName, newBudget);
+
+        Assert.AreEqual(newCompanyName, companyCopy.Name);
+        Assert.AreEqual(newBudget, companyCopy.Employees[0].Projects[0].Budget);
+    }
+
+    [TestMethod]
+    public void TestMultipleInstances()
+    {
+        List<Company> companies = new List<Company>();
+        int numberOfInstances = 5;
+
+        for (int i = 0; i < numberOfInstances; i++)
+        {
+            Company companyCopy = DeepCopy(baseCompany);
+
+            string newCompanyName = $"Tech Solutions {i + 1}";
+            int newBudget = 200000 + (i * 50000);
+            UpdateValues(companyCopy, newCompanyName, newBudget);
+
+            companies.Add(companyCopy);
+        }
+
+        Assert.AreEqual(numberOfInstances, companies.Count);
+        for (int i = 0; i < numberOfInstances; i++)
+        {
+            Assert.AreEqual($"Tech Solutions {i + 1}", companies[i].Name);
+            Assert.AreEqual(200000 + (i * 50000), companies[i].Employees[0].Projects[0].Budget);
+        }
+    }
+
+    private static T DeepCopy<T>(T obj)
+    {
+        string json = JsonConvert.SerializeObject(obj);
+        return JsonConvert.DeserializeObject<T>(json);
+    }
+
+    private static void UpdateValues(Company company, string newCompanyName, int newBudget)
+    {
+        company.Name = newCompanyName;
+
+        if (company.Employees != null && company.Employees.Count > 0)
+        {
+            Employee firstEmployee = company.Employees[0];
+            if (firstEmployee.Projects != null && firstEmployee.Projects.Count > 0)
+            {
+                firstEmployee.Projects[0].Budget = newBudget;
+            }
+        }
+    }
+}
+
+
+####  DateUtilsTests
+
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System;
+
+[TestClass]
+public class DateUtilsTests
+{
+    [TestMethod]
+    public void UpdateTimestampBySecond_ValidTimestamp_ReturnsUpdatedTimestamp()
+    {
+        string result = DateUtils.UpdateTimestampBySecond("1000", 60);
+        Assert.AreEqual("70000", result);
+    }
+
+    [TestMethod]
+    public void UpdateTimestampByMillisecond_ValidTimestamp_ReturnsUpdatedTimestamp()
+    {
+        string result = DateUtils.UpdateTimestampByMillisecond("1000", 1000);
+        Assert.AreEqual("2000", result);
+    }
+
+    [TestMethod]
+    public void UpdateTimestampBySecond_InvalidTimestamp_ThrowsException()
+    {
+        Assert.ThrowsException<ArgumentException>(() => DateUtils.UpdateTimestampBySecond("invalid-timestamp", 60));
+    }
+
+    [TestMethod]
+    public void UpdateTimestampByMillisecond_InvalidTimestamp_ThrowsException()
+    {
+        Assert.ThrowsException<ArgumentException>(() => DateUtils.UpdateTimestampByMillisecond("invalid-timestamp", 1000));
+    }
+
+    [TestMethod]
+    public void UpdateDateBySecond_ValidDate_ReturnsUpdatedDate()
+    {
+        string result = DateUtils.UpdateDateBySecond("2024-06-14", 60);
+        Assert.AreEqual("2024-06-14", result);
+    }
+
+    [TestMethod]
+    public void UpdateDateByMinute_ValidDate_ReturnsUpdatedDate()
+    {
+        string result = DateUtils.UpdateDateByMinute("2024-06-14", 10);
+        Assert.AreEqual("2024-06-14", result);
+    }
+
+    [TestMethod]
+    public void UpdateDateByDay_ValidDate_ReturnsUpdatedDate()
+    {
+        string result = DateUtils.UpdateDateByDay("2024-06-14", 5);
+        Assert.AreEqual("2024-06-19", result);
+    }
+
+    [TestMethod]
+    public void UpdateDateByMillisecond_ValidDate_ReturnsUpdatedDate()
+    {
+        string result = DateUtils.UpdateDateByMillisecond("2024-06-14", 1000);
+        Assert.AreEqual("2024-06-14", result);
+    }
+
+    [TestMethod]
+    public void UpdateDateTimeBySecond_ValidDateTime_ReturnsUpdatedDateTime()
+    {
+        string result = DateUtils.UpdateDateTimeBySecond("2024-06-14T10:30:00Z", 60);
+        Assert.AreEqual("2024-06-14T10:31:00.0000000Z", result);
+    }
+
+    [TestMethod]
+    public void UpdateDateTimeByMinute_ValidDateTime_ReturnsUpdatedDateTime()
+    {
+        string result = DateUtils.UpdateDateTimeByMinute("2024-06-14T10:30:00Z", 15);
+        Assert.AreEqual("2024-06-14T10:45:00.0000000Z", result);
+    }
+
+    [TestMethod]
+    public void UpdateDateTimeByDay_ValidDateTime_ReturnsUpdatedDateTime()
+    {
+        string result = DateUtils.UpdateDateTimeByDay("2024-06-14T10:30:00Z", 3);
+        Assert.AreEqual("2024-06-17T10:30:00.0000000Z", result);
+    }
+
+    [TestMethod]
+    public void UpdateDateTimeByMillisecond_ValidDateTime_ReturnsUpdatedDateTime()
+    {
+        string result = DateUtils.UpdateDateTimeByMillisecond("2024-06-14T10:30:00Z", 1000);
+        Assert.AreEqual("2024-06-14T10:30:01.0000000Z", result);
+    }
+
+    [TestMethod]
+    public void UpdateDateBySecond_InvalidDate_ThrowsException()
+    {
+        Assert.ThrowsException<ArgumentException>(() => DateUtils.UpdateDateBySecond("invalid-date", 60));
+    }
+
+    [TestMethod]
+    public void UpdateDateByMinute_InvalidDate_ThrowsException()
+    {
+        Assert.ThrowsException<ArgumentException>(() => DateUtils.UpdateDateByMinute("invalid-date", 10));
+    }
+}
+
+#####  ThreadSafeIdGeneratorTests
+
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System.Threading.Tasks;
+
+[TestClass]
+public class ThreadSafeIdGeneratorTests
+{
+    [TestMethod]
+    public void GetNextId_InitialSeed_ReturnsIncrementedIds()
+    {
+        ThreadSafeIdGenerator idGenerator = new ThreadSafeIdGenerator();
+
+        Assert.AreEqual(1, idGenerator.GetNextId());
+        Assert.AreEqual(2, idGenerator.GetNextId());
+        Assert.AreEqual(3, idGenerator.GetNextId());
+    }
+
+    [TestMethod]
+    public void GetNextId_CustomInitialSeed_ReturnsIncrementedIds()
+    {
+        ThreadSafeIdGenerator idGenerator = new ThreadSafeIdGenerator(100);
+
+        Assert.AreEqual(101, idGenerator.GetNextId());
+        Assert.AreEqual(102, idGenerator.GetNextId());
+        Assert.AreEqual(103, idGenerator.GetNextId());
+    }
+
+    [TestMethod]
+    public void GetNextId_MultiThreaded_ReturnsUniqueIds()
+    {
+        ThreadSafeIdGenerator idGenerator = new ThreadSafeIdGenerator();
+        int numberOfThreads = 1000;
+        Task[] tasks = new Task[numberOfThreads];
+        int[] results = new int[numberOfThreads];
+
+        for (int i = 0; i < numberOfThreads; i++)
+        {
+            int index = i;
+            tasks[i] = Task.Run(() => results[index] = idGenerator.GetNextId());
+        }
+
+        Task.WaitAll(tasks);
+
+        for (int i = 0; i < numberOfThreads; i++)
+        {
+            for (int j = i + 1; j < numberOfThreads; j++)
+            {
+                Assert.AreNotEqual(results[i], results[j]);
+            }
+        }
+    }
+
+    [TestMethod]
+    public void GetId1000_UpdatesEvery1000Calls()
+    {
+        ThreadSafeIdGenerator idGenerator = new ThreadSafeIdGenerator();
+        int initialId1000 = idGenerator.GetId1000();
+
+        for (int i = 0; i < 999; i++)
+        {
+            idGenerator.GetNextId();
+        }
+
+        Assert.AreEqual(initialId1000, idGenerator.GetId1000());
+
+        idGenerator.GetNextId();
+        Assert.AreNotEqual(initialId1000, idGenerator.GetId1000());
+        Assert.IsTrue(idGenerator.GetId1000() >= 1000 && idGenerator.GetId1000() <= 1010);
+    }
+
+    [TestMethod]
+    public void GetId5000_UpdatesEvery5000Calls()
+    {
+        ThreadSafeIdGenerator idGenerator = new ThreadSafeIdGenerator();
+        int initialId5000 = idGenerator.GetId5000();
+
+        for (int i = 0; i < 4999; i++)
+        {
+            idGenerator.GetNextId();
+        }
+
+        Assert.AreEqual(initialId5000, idGenerator.GetId5000());
+
+        idGenerator.GetNextId();
+        Assert.AreNotEqual(initialId5000, idGenerator.GetId5000());
+        Assert.IsTrue(idGenerator.GetId5000() >= 1000 && idGenerator.GetId5000() <= 1010);
+    }
+}
+
+####  ID GEN
+
+
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System.Threading.Tasks;
+
+[TestClass]
+public class ThreadSafeIdGeneratorTests
+{
+    [TestMethod]
+    public void GetNextId_InitialSeed_ReturnsIncrementedIds()
+    {
+        ThreadSafeIdGenerator idGenerator = new ThreadSafeIdGenerator();
+
+        Assert.AreEqual(1, idGenerator.GetNextId());
+        Assert.AreEqual(2, idGenerator.GetNextId());
+        Assert.AreEqual(3, idGenerator.GetNextId());
+    }
+
+    [TestMethod]
+    public void GetNextId_CustomInitialSeed_ReturnsIncrementedIds()
+    {
+        ThreadSafeIdGenerator idGenerator = new ThreadSafeIdGenerator(100);
+
+        Assert.AreEqual(101, idGenerator.GetNextId());
+        Assert.AreEqual(102, idGenerator.GetNextId());
+        Assert.AreEqual(103, idGenerator.GetNextId());
+    }
+
+    [TestMethod]
+    public void GetNextId_MultiThreaded_ReturnsUniqueIds()
+    {
+        ThreadSafeIdGenerator idGenerator = new ThreadSafeIdGenerator();
+        int numberOfThreads = 1000;
+        Task[] tasks = new Task[numberOfThreads];
+        int[] results = new int[numberOfThreads];
+
+        for (int i = 0; i < numberOfThreads; i++)
+        {
+            int index = i;
+            tasks[i] = Task.Run(() => results[index] = idGenerator.GetNextId());
+        }
+
+        Task.WaitAll(tasks);
+
+        for (int i = 0; i < numberOfThreads; i++)
+        {
+            for (int j = i + 1; j < numberOfThreads; j++)
+            {
+                Assert.AreNotEqual(results[i], results[j]);
+            }
+        }
+    }
+
+    [TestMethod]
+    public void GetId1000_UpdatesEvery1000Calls()
+    {
+        ThreadSafeIdGenerator idGenerator = new ThreadSafeIdGenerator();
+        int initialId1000 = idGenerator.GetId1000();
+
+        for (int i = 0; i < 999; i++)
+        {
+            idGenerator.GetNextId();
+        }
+
+        Assert.AreEqual(initialId1000, idGenerator.GetId1000());
+
+        idGenerator.GetNextId();
+        Assert.AreNotEqual(initialId1000, idGenerator.GetId1000());
+        Assert.IsTrue(idGenerator.GetId1000() >= 1000 && idGenerator.GetId1000() <= 1010);
+    }
+
+    [TestMethod]
+    public void GetId5000_UpdatesEvery5000Calls()
+    {
+        ThreadSafeIdGenerator idGenerator = new ThreadSafeIdGenerator();
+        int initialId5000 = idGenerator.GetId5000();
+
+        for (int i = 0; i < 4999; i++)
+        {
+            idGenerator.GetNextId();
+        }
+
+        Assert.AreEqual(initialId5000, idGenerator.GetId5000());
+
+        idGenerator.GetNextId();
+        Assert.AreNotEqual(initialId5000, idGenerator.GetId5000());
+        Assert.IsTrue(idGenerator.GetId5000() >= 1000 && idGenerator.GetId5000() <= 1010);
+    }
+}
