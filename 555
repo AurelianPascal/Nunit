@@ -101,3 +101,73 @@ public class EventProcessor
         await Task.Delay(1000);
     }
 }
+###
+
+using System;
+using System.Collections.Concurrent;
+using System.Data.SqlClient;
+using System.Threading.Tasks;
+
+public class Book
+{
+    public string Title { get; set; }
+    public string Author { get; set; }
+    // Other properties...
+}
+
+public class BookService
+{
+    private static int _openConnectionCount = 0;
+    private static readonly object _lock = new object();
+
+    public async Task Save(Book b)
+    {
+        SqlConnection connection = new SqlConnection("YourConnectionStringHere");
+        
+        try
+        {
+            IncrementConnectionCount();
+
+            await connection.OpenAsync();
+            Console.WriteLine($"Opened connection. Current open connection count: {_openConnectionCount}");
+
+            // Your save logic here, e.g., using SqlCommand to insert the book details into the database
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+            throw;
+        }
+        finally
+        {
+            if (connection.State == System.Data.ConnectionState.Open)
+            {
+                await connection.CloseAsync();
+                Console.WriteLine("Closed connection.");
+            }
+
+            DecrementConnectionCount();
+            Console.WriteLine($"Current open connection count after closing: {_openConnectionCount}");
+        }
+    }
+
+    private void IncrementConnectionCount()
+    {
+        lock (_lock)
+        {
+            _openConnectionCount++;
+        }
+    }
+
+    private void DecrementConnectionCount()
+    {
+        lock (_lock)
+        {
+            _openConnectionCount--;
+        }
+    }
+}
+
+
+
+
