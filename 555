@@ -45,3 +45,59 @@ public class EventProcessor
         await Task.Delay(1000);
     }
 }
+
+
+using System;
+using System.Collections.Concurrent;
+using System.Threading.Tasks;
+using Azure.Messaging.EventHubs;
+using Azure.Messaging.EventHubs.Processor;
+
+public class EventProcessor
+{
+    private readonly ConcurrentDictionary<string, int> _partitionTaskCounters = new ConcurrentDictionary<string, int>();
+
+    public async Task Handle(ProcessEventArgs args)
+    {
+        string partitionId = args.Partition.PartitionId;
+
+        // Increment the counter for the partition
+        var taskCounter = _partitionTaskCounters.AddOrUpdate(partitionId, 1, (key, oldValue) => oldValue + 1);
+
+        // Log the current counter value
+        Console.WriteLine($"Partition {partitionId} task count: {taskCounter}");
+
+        // Check if there are multiple tasks running for the same partition
+        if (taskCounter > 1)
+        {
+            Console.WriteLine($"Warning: Multiple tasks running for partition {partitionId}");
+        }
+
+        // Define the task for processing the current event
+        var processingTask = ProcessEventAsync(args);
+
+        try
+        {
+            // Await the task to ensure it completes
+            await processingTask;
+        }
+        finally
+        {
+            // Decrement the counter for the partition
+            _partitionTaskCounters.AddOrUpdate(partitionId, 0, (key, oldValue) => oldValue - 1);
+
+            // Log the updated counter value
+            var updatedTaskCounter = _partitionTaskCounters[partitionId];
+            Console.WriteLine($"Partition {partitionId} task count after completion: {updatedTaskCounter}");
+        }
+    }
+
+    private async Task ProcessEventAsync(ProcessEventArgs args)
+    {
+        // Your event processing logic here
+        Console.WriteLine($"Processing event for partition: {args.Partition.PartitionId}");
+
+        // Simulate some asynchronous work
+        await Task.Delay(1000);
+    }
+}
