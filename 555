@@ -1,0 +1,47 @@
+using System;
+using System.Collections.Concurrent;
+using System.Threading.Tasks;
+using Azure.Messaging.EventHubs;
+using Azure.Messaging.EventHubs.Processor;
+
+public class EventProcessor
+{
+    private readonly ConcurrentDictionary<string, Task> _partitionTasks = new ConcurrentDictionary<string, Task>();
+
+    public async Task Handle(ProcessEventArgs args)
+    {
+        string partitionId = args.Partition.PartitionId;
+        
+        // Wait for any existing task for this partition to complete
+        if (_partitionTasks.TryGetValue(partitionId, out var existingTask))
+        {
+            await existingTask;
+        }
+
+        // Define the task for processing the current event
+        var processingTask = ProcessEventAsync(args);
+
+        // Store the task in the dictionary
+        _partitionTasks[partitionId] = processingTask;
+
+        try
+        {
+            // Await the task to ensure it completes
+            await processingTask;
+        }
+        finally
+        {
+            // Remove the task from the dictionary once it completes
+            _partitionTasks.TryRemove(partitionId, out _);
+        }
+    }
+
+    private async Task ProcessEventAsync(ProcessEventArgs args)
+    {
+        // Your event processing logic here
+        Console.WriteLine($"Processing event for partition: {args.Partition.PartitionId}");
+        
+        // Simulate some asynchronous work
+        await Task.Delay(1000);
+    }
+}
