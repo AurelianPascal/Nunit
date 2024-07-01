@@ -170,4 +170,125 @@ public class BookService
 
 
 
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Moq;
+using System;
+using System.Data;
+using System.Data.SqlClient;
+using System.Threading.Tasks;
+
+[TestClass]
+public class DatabaseConnectionWrapperTests
+{
+    private Mock<SqlConnection> _mockConnection;
+
+    [TestInitialize]
+    public void Setup()
+    {
+        _mockConnection = new Mock<SqlConnection>("YourConnectionStringHere");
+
+        _mockConnection.Setup(conn => conn.OpenAsync(It.IsAny<System.Threading.CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockConnection.Setup(conn => conn.CloseAsync())
+            .Returns(Task.CompletedTask);
+
+        _mockConnection.Setup(conn => conn.Dispose());
+    }
+
+    [TestMethod]
+    public async Task OpenConnectionAsync_ShouldOpenConnection()
+    {
+        var dbWrapper = new DatabaseConnectionWrapper(_mockConnection.Object);
+        await dbWrapper.OpenConnectionAsync();
+
+        _mockConnection.Verify(conn => conn.OpenAsync(It.IsAny<System.Threading.CancellationToken>()), Times.Once);
+        Assert.AreEqual(ConnectionState.Open, dbWrapper.Connection.State);
+    }
+
+    [TestMethod]
+    public async Task Dispose_ShouldCloseConnection()
+    {
+        var dbWrapper = new DatabaseConnectionWrapper(_mockConnection.Object);
+        await dbWrapper.OpenConnectionAsync();
+
+        dbWrapper.Dispose();
+
+        _mockConnection.Verify(conn => conn.CloseAsync(), Times.Once);
+        _mockConnection.Verify(conn => conn.Dispose(), Times.Once);
+    }
+
+    [TestMethod]
+    public void Dispose_ShouldNotThrow_WhenCalledMultipleTimes()
+    {
+        var dbWrapper = new DatabaseConnectionWrapper(_mockConnection.Object);
+
+        dbWrapper.Dispose();
+        // Calling Dispose again should not throw any exception
+        dbWrapper.Dispose();
+
+        _mockConnection.Verify(conn => conn.Dispose(), Times.Exactly(2));
+    }
+}
+
+public class DatabaseConnectionWrapper : IDisposable
+{
+    private SqlConnection _connection;
+    private bool _disposed = false;
+
+    public DatabaseConnectionWrapper(SqlConnection connection)
+    {
+        _connection = connection;
+    }
+
+    public async Task OpenConnectionAsync()
+    {
+        if (_connection.State != ConnectionState.Open)
+        {
+            await _connection.OpenAsync();
+            Console.WriteLine("Connection opened.");
+        }
+    }
+
+    public SqlConnection Connection => _connection;
+
+    public void Dispose()
+    {
+        Dispose(true);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!_disposed)
+        {
+            if (disposing)
+            {
+                // Dispose managed resources
+                if (_connection != null)
+                {
+                    if (_connection.State == ConnectionState.Open)
+                    {
+                        _connection.CloseAsync().Wait(); // Ensure the connection is closed asynchronously
+                        Console.WriteLine("Connection closed.");
+                    }
+                    _connection.Dispose();
+                    _connection = null;
+                }
+            }
+            _disposed = true;
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
 
